@@ -4,6 +4,8 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
@@ -18,24 +20,30 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 @ExtendWith(SpringExtension.class)
 @TestPropertySource
 @TestInstance(Lifecycle.PER_CLASS)
-@ContextConfiguration(classes = CryptoCompare.class)
+@ContextConfiguration(classes = ClientTest.class)
 public class ClientTest {
 
 	public static final Logger LOGGER = LoggerFactory.getLogger(ClientTest.class);
 
-	@Value("${apikey}")
+	@Value("${cc.apikey}")
 	String apiKey;
+
+	CryptoCompare cryptoCompare;
+
+	@BeforeAll
+	public void beforeAll() {
+		cryptoCompare = new CryptoCompare(apiKey);
+	}
 
 	@Test
 	public void testExchanges() {
-		CryptoCompare cc = new CryptoCompare(apiKey,null);
-		cc.getExchanges();
+		Collection<Exchange> ex = cryptoCompare.getExchanges();
+		Assertions.assertTrue(ex.size()>0);
 	}
 
 	@Test
 	public void testCoins() {
-		CryptoCompare cc = new CryptoCompare(apiKey,null);
-		Collection<Coin> coins = cc.getCoins();
+		Collection<Coin> coins = cryptoCompare.getCoins();
 		Set<String> platforms = new HashSet<>();
 		Set<String> builton = new HashSet<>();
 		Set<String> cas = new HashSet<>();

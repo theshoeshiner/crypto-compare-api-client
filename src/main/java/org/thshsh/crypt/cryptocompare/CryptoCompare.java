@@ -57,6 +57,10 @@ public class CryptoCompare {
 	String mediaUrl = "https://www.cryptocompare.com/";
 
 
+	public CryptoCompare(String key) {
+		this(key,null);
+	}
+
 	public CryptoCompare(String key,String cacheFile) {
 
 		template = new RestTemplate();
