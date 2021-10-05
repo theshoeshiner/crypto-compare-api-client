@@ -1,5 +1,7 @@
 package org.thshsh.crypt.cryptocompare;
 
+import java.math.BigDecimal;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class Coin {
@@ -18,7 +20,11 @@ public class Coin {
 	String platformType;
 	@JsonProperty("Taxonomy")
 	Taxonomy taxonomy;
-
+	@JsonProperty("CirculatingSupply")
+	BigDecimal circulatingSupply;
+	@JsonProperty("Rating")
+	Rating rating;
+	
 	public String getId() {
 		return id;
 	}
@@ -61,7 +67,25 @@ public class Coin {
 	public void setTaxonomy(Taxonomy taxonomy) {
 		this.taxonomy = taxonomy;
 	}
-
-
-
+	public BigDecimal getCirculatingSupply() {
+		return circulatingSupply;
+	}
+	public void setCirculatingSupply(BigDecimal circulatingSupply) {
+		this.circulatingSupply = circulatingSupply;
+	}
+	public Rating getRating() {
+		return rating;
+	}
+	public void setRating(Rating rating) {
+		this.rating = rating;
+	}
+	public boolean hasRating() {
+		return rating != null && !rating.isEmpty();
+	}
+	@Override
+	public String toString() {
+		return "[id=" + id + ", name=" + name + ", symbol=" + symbol + "]";
+	}
+	
+	
 }
