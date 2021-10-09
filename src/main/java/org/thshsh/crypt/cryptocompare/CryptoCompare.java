@@ -9,9 +9,11 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -47,7 +49,7 @@ public class CryptoCompare {
 	Integer apiCount;
 	Integer apiMax;
 
-	ObjectMapper objectMapper = new ObjectMapper();
+	ObjectMapper objectMapper = new ObjectMapper(); 
 
 	static BigInteger HOUR = new BigInteger("3600");
 
@@ -71,7 +73,7 @@ public class CryptoCompare {
 		this.apiCount = 0;
 		this.apiMax = 0;
 
-		LOGGER.info("CryptoCompare(): {}", key);
+		LOGGER.info("CryptoCompare key: {}", key);
 
 		List<CacheEntry> fromFile = loadCacheEntries(cacheFile);
 		fromFile.forEach(this::addToCache);
@@ -144,28 +146,29 @@ public class CryptoCompare {
 
 	//https://min-api.cryptocompare.com/data/v4/all/exchanges
 
-
+	public ExchangesCurrencyPairs getExchangeCurrencyPairs(boolean topTier) {
+		UriBuilder ub = getUri().pathSegment("v4","all","exchanges");
+		if(topTier) ub = ub.queryParam("topTier", true);
+		URI uri = ub.build();
+		ExchangesCurrencyPairs exes = getForObject(uri, ExchangesCurrencyPairs.class);
+		return exes;
+	}
 
 	protected UriBuilder getUri() {
 		return uriBuilder.uriString(urlStart).queryParam("api_key", this.apiKey);
 	}
 
-	protected String getUrl(String path) {
-		return urlStart + path;
-	}
 
 	public Collection<Exchange> getExchanges() {
 		URI uri = getUri().pathSegment("exchanges","general").build();
-		Exchanges exes = template.getForObject(uri, Exchanges.class);
+		Exchanges exes = getForObject(uri, Exchanges.class);
 		return exes.data.values();
 	}
 
-	//https://min-api.cryptocompare.com/data/all/coinlist?summary=true
 	public Collection<Coin> getCoins() {
 		URI uri = getUri().pathSegment("all","coinlist")
-		//.queryParam("summary", "true")
 		.build();
-		Coins exes = template.getForObject(uri, Coins.class);
+		Coins exes = getForObject(uri, Coins.class);
 		return exes.data.values();
 	}
 
@@ -236,10 +239,15 @@ public class CryptoCompare {
 		if (found == null) {
 			this.apiCount++;
 
-
-			String url = getUrl("v2/histohour");
-			 url = url+"?fsym=" + asset + "&tsym=USD&toTs=" + time
-					+ "&limit=1&api_key=" + this.apiKey;
+			String url = getUri().path("v2/histohour")
+			.queryParam("fsym",asset)
+			.queryParam("tsym","USD")
+			.queryParam("toTs",time)
+			.queryParam("limit","1")
+			.build().toString();
+			//String url = getUrl("v2/histohour");
+			 //url = url+"?fsym=" + asset + "&tsym=USD&toTs=" + time + "&limit=1&api_key=" + this.apiKey;
+			
 			LOGGER.info("URL: {}", url);
 
 			if (this.apiCount > this.apiMax) {
@@ -264,27 +272,6 @@ public class CryptoCompare {
 
 				found = entry;
 
-				/*URL u = new URL(url);
-				try (InputStream is = u.openStream()) {
-
-					JsonNode node = objectMapper.readTree(is);
-					JsonNode points = node.get("Data").get("Data");
-
-					CacheEntry entry = null;
-					for(int i=0;i<points.size();i++) {
-						JsonNode lastPoint = points.get(i);
-						entry = mapNodeToEntry(asset, lastPoint);
-						addToCache(entry);
-						appendToNew(entry);
-					}
-
-					LOGGER.info("{}", entry);
-
-					found = entry;
-				} catch (IOException e1) {
-
-					e1.printStackTrace();
-				}*/
 			} catch (IOException e) {
 				LOGGER.warn("",e);
 			}
@@ -297,24 +284,55 @@ public class CryptoCompare {
 
 	//https://min-api.cryptocompare.com/data/pricemulti?fsyms=BTC,ETH&tsyms=USD,EUR
 
-	public Map<String,BigDecimal> getCurrentFiatPrice(Collection<String> assets) {
+	public CurrentPricesResponse getCurrentPrice(String to, String... assets) {
+		return this.getCurrentPrice(to,Arrays.asList(assets));
+	}
+	
+	public CurrentPricesResponse getCurrentPrice(String to,Collection<String> assets) {
 		String list = assets.stream().collect(Collectors.joining(","));
-		String url = getUrl("pricemulti")+"?fsyms="+list+"&tsyms=USD";
-		Map<String,BigDecimal> map = new HashMap<>();
-		try {
-			JsonNode node = executeUrl(url);
-			node.fieldNames().forEachRemaining(asset -> {
+		to = to.toUpperCase();
+		//String url = getUrl("pricemulti")+"?fsyms="+list+"&tsyms=USD";
+		
+		URI uri = getUri().path("pricemulti")
+				.queryParam("fsyms",list)
+				.queryParam("tsyms",to.toUpperCase())
+				//.queryParam("toTs",time)
+				//.queryParam("limit","1")
+				.build()
+				;
+		
+		//Map<String,BigDecimal> map = new HashMap<>();
+		//try {
+			
+			CurrentPricesResponse exes = getForObject(uri, CurrentPricesResponse.class);
+			exes.setToCurrency(to);
+			return exes;
+			//
+			/*exes.prices.forEach( (asset,price) -> {
+				BigDecimal v = new BigDecimal(price.toString());
+				map.put(asset, v);
+			});*/
+			
+			/*node.fieldNames().forEachRemaining(asset -> {
 				JsonNode values = node.get(asset);
 				String value = values.get("USD").asText();
 				BigDecimal v = new BigDecimal(value);
 				map.put(asset, v);
-			});
-			return map;
-		}
-		catch (IOException e) {
-			return null;
-		}
+			});*/
+			//return map;
+		//}
+		//catch (IOException e) {
+			//return null;
+		//}
 
+	}
+	
+	protected <T extends Response> T getForObject(URI uri, Class<T> classs){
+		T t = template.getForObject(uri, classs);
+		if("Error".equals(t.getResponse())) {
+			throw new CryptoCompareException(t.getMessage());
+		}
+		return t;
 	}
 
 	protected JsonNode executeUrl(String url) throws IOException {
@@ -324,27 +342,25 @@ public class CryptoCompare {
 			throw new IllegalStateException("api count reached max");
 		}
 
-
+		LOGGER.info("read url: {}",url);
 		URL u = new URL(url);
-		try (InputStream is = u.openStream()) {
+		HttpURLConnection connection = (HttpURLConnection) u.openConnection();
+		LOGGER.info("response: {} / {}",connection.getResponseCode(),connection.getResponseMessage());
+		
+		try (InputStream is = connection.getInputStream();) {
 
+			
 			JsonNode node = objectMapper.readTree(is);
-
-			return node;
-			/*
-			JsonNode points = node.get("Data").get("Data");
-
-			CacheEntry entry = null;
-			for(int i=0;i<points.size();i++) {
-				JsonNode lastPoint = points.get(i);
-				entry = mapNodeToEntry(asset, lastPoint);
-				addToCache(entry);
-				appendToNew(entry);
+			
+			
+			if(node.has("Response") && "Error".equals(node.get("Response").asText())) {
+				String message = node.get("Message").asText();
+				
 			}
-
-			LOGGER.info("{}", entry);
-
-			found = entry;*/
+			
+			LOGGER.info("node: {}",node);
+			return node;
+			
 		}
 
 
@@ -413,32 +429,18 @@ public class CryptoCompare {
 
 	}
 
-	/*public static Map<String,CacheEntry> loadCache(String cacheFile) {
+	
+	
+	
+	
 
-		Map<String,CacheEntry> apiCache = new HashMap<>();
+	public String getApiKey() {
+		return apiKey;
+	}
 
-		try {
-			File cf = new File(cacheFile);
-			FileInputStream fis = new FileInputStream(cf);
-			CSVParser parser = CSVFormat.DEFAULT.parse(new InputStreamReader(fis));
-
-			for (final CSVRecord record : parser) {
-				CacheEntry ce = new CacheEntry(record);
-				apiCache.put(ce.key, ce);
-			}
-
-			parser.close();
-
-			return apiCache;
-		}
-		catch (IOException e) {
-			throw new IllegalStateException(e);
-		}
-
-
-
-
-	}*/
+	public void setApiKey(String apiKey) {
+		this.apiKey = apiKey;
+	}
 
 	public static List<CacheEntry> loadCacheEntries(String cacheFile) {
 

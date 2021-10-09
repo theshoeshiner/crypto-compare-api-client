@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class Exchange {
 
+	
 
 	@JsonProperty("Id")
 	String id;
@@ -15,8 +16,9 @@ public class Exchange {
 	String url;
 	@JsonProperty("LogoUrl")
 	String logoUrl;
-
-
+	@JsonProperty("Grade")
+	
+	Grade grade;
 
 	public String getId() {
 		return id;
@@ -57,6 +59,16 @@ public class Exchange {
 
 	public void setLogoUrl(String logoUrl) {
 		this.logoUrl = logoUrl;
+	}
+	
+	
+
+	public Grade getGrade() {
+		return grade;
+	}
+
+	public void setGrade(Grade grade) {
+		this.grade = grade;
 	}
 
 	@Override
