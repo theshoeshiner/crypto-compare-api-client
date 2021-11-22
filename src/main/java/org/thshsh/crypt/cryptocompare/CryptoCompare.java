@@ -42,10 +42,9 @@ public class CryptoCompare {
 	//String cacheFileBackup = "price-cache-backup.csv";
 
 	String apiKey;
-	//Map<String,CacheEntry> apiCache;
+	ThreadLocal<String> apiKeyThreadLocal = new ThreadLocal<String>();
 	Map<String, Collection<CacheEntry>> currencyEntryCache = new HashMap<>();
 	List<CacheEntry> cacheEntries = new ArrayList<>();
-	//Map<String,CacheEntry> apiCacheBackup;
 	Integer apiCount;
 	Integer apiMax;
 
@@ -119,15 +118,6 @@ public class CryptoCompare {
 
 	}
 
-	//TODO we could be using the wrong prices
-	/*public BigDecimal getFiatPrice(String asset, LocalDateTime time) {
-
-
-
-
-
-	}*/
-
 
 	protected CacheEntry mapNodeToEntry(String asset,JsonNode lastPoint) {
 		//JsonNode lastPoint = points.get(points.size() - 1);
@@ -149,26 +139,22 @@ public class CryptoCompare {
 	public ExchangesCurrencyPairs getExchangeCurrencyPairs(boolean topTier) {
 		UriBuilder ub = getUri().pathSegment("v4","all","exchanges");
 		if(topTier) ub = ub.queryParam("topTier", true);
-		URI uri = ub.build();
-		ExchangesCurrencyPairs exes = getForObject(uri, ExchangesCurrencyPairs.class);
+		ExchangesCurrencyPairs exes = getForObject(ub, ExchangesCurrencyPairs.class);
 		return exes;
 	}
 
 	protected UriBuilder getUri() {
-		return uriBuilder.uriString(urlStart).queryParam("api_key", this.apiKey);
+		return uriBuilder.uriString(urlStart);
 	}
 
 
 	public Collection<Exchange> getExchanges() {
-		URI uri = getUri().pathSegment("exchanges","general").build();
-		Exchanges exes = getForObject(uri, Exchanges.class);
+		Exchanges exes = getForObject(getUri().pathSegment("exchanges","general"), Exchanges.class);
 		return exes.data.values();
 	}
 
 	public Collection<Coin> getCoins() {
-		URI uri = getUri().pathSegment("all","coinlist")
-		.build();
-		Coins exes = getForObject(uri, Coins.class);
+		Coins exes = getForObject(getUri().pathSegment("all","coinlist"), Coins.class);
 		return exes.data.values();
 	}
 
@@ -225,6 +211,7 @@ public class CryptoCompare {
 	 * @param time
 	 * @return
 	 */
+	@Deprecated
 	public BigDecimal getFiatPrice(String asset, BigInteger time) {
 
 		//if(asset == FIAT_ASSET) return new BigNum(1);
@@ -291,43 +278,23 @@ public class CryptoCompare {
 	public CurrentPricesResponse getCurrentPrice(String to,Collection<String> assets) {
 		String list = assets.stream().collect(Collectors.joining(","));
 		to = to.toUpperCase();
-		//String url = getUrl("pricemulti")+"?fsyms="+list+"&tsyms=USD";
 		
-		URI uri = getUri().path("pricemulti")
+		UriBuilder uri = getUri().path("pricemulti")
 				.queryParam("fsyms",list)
 				.queryParam("tsyms",to.toUpperCase())
-				//.queryParam("toTs",time)
-				//.queryParam("limit","1")
-				.build()
 				;
-		
-		//Map<String,BigDecimal> map = new HashMap<>();
-		//try {
-			
+
 			CurrentPricesResponse exes = getForObject(uri, CurrentPricesResponse.class);
 			exes.setToCurrency(to);
 			return exes;
-			//
-			/*exes.prices.forEach( (asset,price) -> {
-				BigDecimal v = new BigDecimal(price.toString());
-				map.put(asset, v);
-			});*/
-			
-			/*node.fieldNames().forEachRemaining(asset -> {
-				JsonNode values = node.get(asset);
-				String value = values.get("USD").asText();
-				BigDecimal v = new BigDecimal(value);
-				map.put(asset, v);
-			});*/
-			//return map;
-		//}
-		//catch (IOException e) {
-			//return null;
-		//}
 
 	}
 	
-	protected <T extends Response> T getForObject(URI uri, Class<T> classs){
+	protected <T extends Response> T getForObject(UriBuilder ub, Class<T> classs){
+		
+		String apiKey = apiKeyThreadLocal.get();
+		if(apiKey == null) apiKey = this.apiKey;
+		URI uri = ub.queryParam("api_key", apiKey).build();
 		T t = template.getForObject(uri, classs);
 		if("Error".equals(t.getResponse())) {
 			throw new CryptoCompareException(t.getMessage());
@@ -335,6 +302,7 @@ public class CryptoCompare {
 		return t;
 	}
 
+	@Deprecated
 	protected JsonNode executeUrl(String url) throws IOException {
 
 		if (this.apiCount > this.apiMax) {
@@ -368,6 +336,7 @@ public class CryptoCompare {
 
 	}
 
+	@Deprecated
 	public BigDecimal getFiatPrice(String asset, long time) {
 		return getFiatPrice(asset, BigInteger.valueOf(time));
 	}
@@ -433,6 +402,10 @@ public class CryptoCompare {
 	
 	
 	
+
+	public ThreadLocal<String> getApiKeyThreadLocal() {
+		return apiKeyThreadLocal;
+	}
 
 	public String getApiKey() {
 		return apiKey;
